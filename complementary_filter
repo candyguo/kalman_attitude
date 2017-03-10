@@ -1,0 +1,85 @@
+w_start=[1*pi/180 0 0];%rad/s
+MeasNoise = 0.00001; % standard deviation of measurement noise
+R = [1e-10 0 0; 0 1e-10 0;0 0 1e-10]; % Measurement noise covariance
+xdotNoise = [1/206265 0.1/206265];
+Q = [xdotNoise(1)^2 0 0 0 0 0
+    0 xdotNoise(1)^2 0 0 0 0
+    0 0 xdotNoise(1)^2 0 0 0
+    0 0 0 xdotNoise(2)^2 0 0
+    0 0 0 0 xdotNoise(2)^2 0
+    0 0 0 0 0 xdotNoise(2)^2]; % Process noise covariance
+b3 = 1/206265; b2 = b3; b1 = b2;
+dt = 0.1; % Integration step size
+tf = 180; % Simulation length
+xhat = [1 0 0 0]'; % State estimate
+xtrue=[1 0 0 0]';
+xguzhi=[1 0 0 0]';
+xmeasure=[0 0 0]';
+% Initialize arrays for plotting at the end of the program
+xhatArray = [];
+xguzhiArray=[];
+xmeasureArray=[];
+xtrueArray=[];
+tArray = [];
+tmeasureArray=[];
+% Begin simulation loop
+for t = 0 : dt : tf
+    xhatArray = [xhatArray xhat];
+    xguzhiArray=[xguzhiArray xguzhi];
+    xtrueArray=[xtrueArray xtrue];
+    tArray = [tArray t]; 
+    ou_w=[0 -(w_start(1)+xdotNoise(1)*randn+b1) -(w_start(2)+xdotNoise(1)*randn+b2) -(w_start(3)+xdotNoise(1)*randn+b3)
+    w_start(1)+xdotNoise(1)*randn+b1 0 -(w_start(3)+xdotNoise(1)*randn+b3) (w_start(2)+xdotNoise(1)*randn+b2)
+    w_start(2)+xdotNoise(1)*randn+b2 w_start(3)+xdotNoise(1)*randn+b3 0 -(w_start(1)+xdotNoise(1)*randn+b1)
+    w_start(3)+xdotNoise(1)*randn+b3 -(w_start(2)+xdotNoise(1)*randn+b2) w_start(1)+xdotNoise(1)*randn+b1 0];
+   
+    ou_wtrue=[0 -w_start(1) -w_start(2) -w_start(3)
+    w_start(1) 0 -w_start(3) w_start(2)
+    w_start(2) w_start(3) 0 -w_start(1)
+    w_start(3) -w_start(2) w_start(1) 0];
+
+    xtrue=xtrue+dt*0.5*ou_wtrue*[xtrue(1),xtrue(2),xtrue(3),xtrue(4)]';
+    xtrue=xtrue/norm(xtrue);
+    xhat(1:4,1)=xhat(1:4,1)+0.5*ou_w*[xhat(1),xhat(2),xhat(3),xhat(4)]'*dt;
+    xhat(1:4)=xhat(1:4)/norm(xhat(1:4));
+    xguzhi=xguzhi+0.5*dt*ou_w*[xguzhi(1) xguzhi(2) xguzhi(3) xguzhi(4)]';
+    xguzhi=xguzhi/norm(xguzhi);
+    if(mod(t,0.3)==0)
+      xmeasure=[xtrue(1)+MeasNoise*randn xtrue(2)+MeasNoise*randn xtrue(3)+MeasNoise*randn xtrue(4)+MeasNoise*randn]';
+      xmeasureArray=[xmeasureArray xmeasure];
+      tmeasureArray=[tmeasureArray t];
+      xhat(1:4,1)=0.8*xhat+0.2*xmeasure;
+      xhat(1:4)=xhat(1:4)/norm(xhat(1:4));
+    end
+end
+figure;
+plot(tArray,xhatArray(1,:),'r:')
+grid on;
+set(gca,'FontSize',12); set(gcf,'Color','White');
+xlabel('Time (Seconds)'); ylabel('q0');
+figure;
+plot(tArray,xhatArray(2,:),'r:')
+grid on;
+set(gca,'FontSize',12); set(gcf,'Color','White');
+xlabel('Time (Seconds)'); ylabel('q1');
+figure;
+plot(tArray,xhatArray(3,:),'r:')
+grid on;
+set(gca,'FontSize',12); set(gcf,'Color','White');
+xlabel('Time (Seconds)'); ylabel('q2');
+
+figure;
+plot(tArray,xhatArray(4,:),'r:')
+grid on;
+set(gca,'FontSize',12); set(gcf,'Color','White');
+xlabel('Time (Seconds)'); ylabel('q3');
+figure
+plot(tArray,xguzhiArray(end,:))
+hold on;
+plot(tArray,xhatArray(4,:))
+hold on;
+plot(tmeasureArray,xmeasureArray(end,:))
+hold on;
+plot(tArray,xtrueArray(end,:))
+std(xmeasureArray(end,:))
+std(xhatArray(4,:))
