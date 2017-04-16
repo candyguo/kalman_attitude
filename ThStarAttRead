@@ -1,0 +1,34 @@
+function [quaData1,quaData2,quaData3]=att_process()
+format long
+[FileName,PathName] = uigetfile('*.txt','Select the att file');
+fid2 = fopen(strcat (PathName,FileName),'rt');
+if (fid2 == -1)
+    msgbox('input file or path is not correct!','warning','warn');
+    return;
+end 
+[time1_1,q10_1,q11_1,q12_1,q13_1,tag1_1,time2_1,q20_1,q21_1,q22_1,q23_1,tag2_1,time3_1,q30_1,q31_1,q32_1,q33_1,tag3_1,time1_2,q10_2,q11_2,q12_2,q13_2,tag1_2,time2_2,q20_2,q21_2,q22_2,q23_2,tag2_2,time3_2,q30_2,q31_2,q32_2,q33_2,tag3_2]=textread(strcat(PathName,FileName),'%f %f %f %f %f %n %f %f %f %f %f %n %f %f %f %f %f %n %f %f %f %f %f %n %f %f %f %f %f %n %f %f %f %f %f %n','delimiter', ' ','headerlines', 1);
+temp_number=size(time1_1,1);
+for i=1:temp_number
+    time1(i*2-1)=time1_1(i);time1(i*2)=time1_2(i);
+    q10(i*2-1)=q10_1(i);q10(i*2)=q10_2(i);
+    q11(i*2-1)=q11_1(i);q11(i*2)=q11_2(i);
+    q12(i*2-1)=q12_1(i);q12(i*2)=q12_2(i);
+    q13(i*2-1)=q13_1(i);q13(i*2)=q13_2(i);
+    q20(i*2-1)=q20_1(i);q20(i*2)=q20_2(i);
+    q21(i*2-1)=q21_1(i);q21(i*2)=q21_2(i);
+    q22(i*2-1)=q22_1(i);q22(i*2)=q22_2(i);
+    q23(i*2-1)=q23_1(i);q23(i*2)=q23_2(i);
+    q30(i*2-1)=q30_1(i);q30(i*2)=q30_2(i);
+    q31(i*2-1)=q31_1(i);q31(i*2)=q31_2(i);
+    q32(i*2-1)=q32_1(i);q32(i*2)=q32_2(i);
+    q33(i*2-1)=q33_1(i);q33(i*2)=q33_2(i);
+end
+quaData1 = zeros(temp_number*2,5);
+quaData1(:,1)=time1';quaData1(:,2)=q10';quaData1(:,3)=q11';quaData1(:,4)=q12';quaData1(:,5)=q13';
+quaData1=unique(quaData1,'rows');
+quaData2 = zeros(temp_number*2,5);
+quaData2(:,1)=time1';quaData2(:,2)=q20';quaData2(:,3)=q21';quaData2(:,4)=q22';quaData2(:,5)=q23';
+quaData2=unique(quaData2,'rows');
+quaData3 = zeros(temp_number*2,5);
+quaData3(:,1)=time1';quaData3(:,2)=q30';quaData3(:,3)=q31';quaData3(:,4)=q32';quaData3(:,5)=q33';
+quaData3=unique(quaData3,'rows');
