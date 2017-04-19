@@ -151,3 +151,26 @@ hold on;
 plot(tmeasureArray,xmeasureArray(end,:))
 hold on;
 plot(tArray,xtrueArray(end,:))
+
+for i=1:1801
+p=xhatArray(:,i);
+q=[xtrueArray(1,i) -xtrueArray(2,i) -xtrueArray(3,i) -xtrueArray(4,i)];
+r=quan_mul(p,q);
+error_quan(i,:)=r;
+end
+for i=1:1801
+angle_hat(:,i)=qua2ang(error_quan(i,:));
+end
+angle_hat=angle_hat*3600;
+sqrt(sum(angle_hat(1,:).^2)/1801)
+sqrt(sum(angle_hat(2,:).^2)/1801)
+sqrt(sum(angle_hat(3,:).^2)/1801)
+subplot(3,1,1)
+hold on;
+plot(angle_hat(1,:))
+subplot(3,1,2)
+hold on;
+plot(angle_hat(2,:))
+subplot(3,1,3)
+hold on;
+plot(angle_hat(3,:))
