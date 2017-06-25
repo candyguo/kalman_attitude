@@ -1,0 +1,223 @@
+load('/Users/c_c/Desktop/ZY3Fusion/STG201505.mat')
+[time,q1,q2,q3]=Readatt;%read quan in the attfile 
+
+% sensors install matrix
+Body2StarSensorOne=[cos(29.13212*pi/180) cos(104.8425*pi/180) cos(65.5449*pi/180)
+                    cos(75.98529*pi/180) cos(120.6005*pi/180) cos(145.6867*pi/180)
+                    cos(65.0185*pi/180) cos(34.7422*pi/180) cos(112.497*pi/180)];
+Body2StarSensorTwo=[cos(21.68954*pi/180) cos(92.60966*pi/180) cos(111.5162*pi/180)
+                    cos(102.7403*pi/180) cos(149.8423*pi/180) cos(116.833*pi/180)
+                    cos(107.2508*pi/180) cos(59.97562*pi/180) cos(144.4336*pi/180)];
+Body2StarSensorThree=[cos(63.63085*pi/180) cos(92.72818*pi/180) cos(26.53156*pi/180)
+                      cos(68.95412*pi/180) cos(154.8806*pi/180) cos(103.0838*pi/180)
+                      cos(34.83029*pi/180) cos(65.0493*pi/180) cos(112.6469*pi/180)];
+Body2Gyro=[cos(54.72148*pi/180) cos(89.9605*pi/180) cos(35.25769*pi/180)
+           cos(54.72435*pi/180) cos(135.0281*pi/180) cos(114.0297*pi/180)
+           cos(54.77499*pi/180) cos(44.97068*pi/180) cos(114.0914*pi/180)];
+    
+%body attitude from star sensor one
+for i=1:length(STG201505(:,1))
+    QuaStarSensorOne=[sqrt(1-STG201505(i,3)^2-STG201505(i,4)^2-...
+    STG201505(i,5)^2),STG201505(i,3),STG201505(i,4),STG201505(i,5)];
+    QuaStarSensorOne=QuaStarSensorOne/norm(QuaStarSensorOne);
+    attitude_matrix=qua2rollpitchyaw_new(QuaStarSensorOne);
+    attitude_matrix=(Body2StarSensorOne'*attitude_matrix');
+    qua_body_ss1=rotatemat2quat(attitude_matrix,0);
+    qua_body_ss1=qua_body_ss1/norm(qua_body_ss1);
+    QuaBodySs1(i,:)=[STG201505(i,1) qua_body_ss1'];   
+end
+
+%body attitude from star sensor two
+for i=1:length(STG201505(:,6))
+    QuaStarSensorTwo=[sqrt(1-STG201505(i,8)^2-STG201505(i,9)^2-...
+    STG201505(i,10)^2),STG201505(i,8),STG201505(i,9),STG201505(i,10)];
+    QuaStarSensorTwo=QuaStarSensorTwo/norm(QuaStarSensorTwo);
+    attitude_matrix=qua2rollpitchyaw_new(QuaStarSensorTwo);
+    attitude_matrix=(Body2StarSensorTwo'*attitude_matrix');
+    qua_body_ss2=rotatemat2quat(attitude_matrix,0);
+    qua_body_ss2=qua_body_ss2/norm(qua_body_ss2);
+    QuaBodySs2(i,:)=[STG201505(i,6) qua_body_ss2'];   
+end
+
+%body attitude from star sensor three
+for i=1:length(STG201505(:,11))
+    QuaStarSensorThree=[sqrt(1-STG201505(i,13)^2-STG201505(i,14)^2-...
+    STG201505(i,15)^2),STG201505(i,13),STG201505(i,14),STG201505(i,15)];
+    QuaStarSensorThree=QuaStarSensorThree/norm(QuaStarSensorThree);
+    attitude_matrix=qua2rollpitchyaw_new(QuaStarSensorThree);
+    attitude_matrix=(Body2StarSensorThree'*attitude_matrix');
+    qua_body_ss3=rotatemat2quat(attitude_matrix,0);
+    qua_body_ss3=qua_body_ss3/norm(qua_body_ss3);
+    QuaBodySs3(i,:)=[STG201505(i,11) qua_body_ss3'];   
+end
+
+QuaBodySs=(QuaBodySs2+QuaBodySs3)/2;
+
+for i=1:length(STG201505(:,16))
+    gyro_vel_inertia=[STG201505(i,17),STG201505(i,18),STG201505(i,19)]'*pi/180;
+    gyro_vel_body=Body2Gyro'*gyro_vel_inertia;
+    GyroVelBody(i,:)=[STG201505(i,16) gyro_vel_body'];   
+end
+% GyroVelBody(:,2)=smooth(GyroVelBody(:,2));
+% GyroVelBody(:,3)=smooth(GyroVelBody(:,3));
+% GyroVelBody(:,4)=smooth(GyroVelBody(:,4));
+
+%interp to get start value
+[array,index]=sort(abs(QuaBodySs2(2,1)-time));
+q1_start=lagrange(time(index(1:3)),q1(index(1:3)),QuaBodySs2(2,1));
+q2_start=lagrange(time(index(1:3)),q2(index(1:3)),QuaBodySs2(2,1));
+q3_start=lagrange(time(index(1:3)),q3(index(1:3)),QuaBodySs2(2,1));
+
+%body attitude from gyro based on kinetical
+T=0.25;
+xhat = [sqrt(1-q1_start^2-q2_start^2-q3_start^2),q1_start,q2_start,q3_start,0,0,0]';
+xgyro = [sqrt(1-q1_start^2-q2_start^2-q3_start^2),q1_start,q2_start,q3_start]';
+x=[0 0 0 0 0 0]';
+filter_time=GyroVelBody(1,1);
+xhatArray =xhat;
+xgyroArray=xgyro;
+xArray=x;
+tArray = filter_time;
+R = [4*1e-10 0 0; 0 4*1e-10 0;0 0 4*1e-10];
+xdotNoise = [ 0.1/206265 0.01/206265];
+Q = [xdotNoise(1)^2 0 0 0 0 0
+    0 xdotNoise(1)^2 0 0 0 0
+    0 0 xdotNoise(1)^2 0 0 0
+    0 0 0 xdotNoise(2)^2 0 0
+    0 0 0 0 xdotNoise(2)^2 0
+    0 0 0 0 0 xdotNoise(2)^2]; % Process noise covariance
+P = 1e-6*eye(6); % Initial state estimation covariance
+n=6;
+m=3;
+
+
+for t = 1:length(STG201505(:,11))-2
+     ou_w=[0 -(GyroVelBody(t,2)) -(GyroVelBody(t,3)) -(GyroVelBody(t,4))
+     GyroVelBody(t,2) 0 -(GyroVelBody(t,4)) GyroVelBody(t,3)
+     GyroVelBody(t,3) GyroVelBody(t,4) 0 -(GyroVelBody(t,2))
+     GyroVelBody(t,4) -(GyroVelBody(t,3)) GyroVelBody(t,2) 0];
+    %xhat=xhat-0.5*ou_what*[xhat(1),xhat(2),xhat(3),xhat(4)]'*0.25;% one order cal
+   
+    ou_what=[0 -(GyroVelBody(t,2)-xhat(5)) -(GyroVelBody(t,3)-xhat(6)) -(GyroVelBody(t,4)-xhat(7))
+     GyroVelBody(t,2)-xhat(5) 0 -(GyroVelBody(t,4)-xhat(7)) GyroVelBody(t,3)-xhat(6)
+     GyroVelBody(t,3)-xhat(6) GyroVelBody(t,4)-xhat(7) 0 -(GyroVelBody(t,2)-xhat(5))
+     GyroVelBody(t,4)-xhat(7) -(GyroVelBody(t,3)-xhat(6)) GyroVelBody(t,2)-xhat(5) 0];
+ 
+    xgyro=xgyro-0.5*ou_w*[xgyro(1),xgyro(2),xgyro(3),xgyro(4)]'*0.25;
+    xgyro=xgyro/norm(xgyro);
+    
+    xhat(1:4)=xhat(1:4)-0.5*ou_what*[xhat(1),xhat(2),xhat(3),xhat(4)]'*0.25;
+    xhat(1:4)=xhat(1:4)/norm(xhat(1:4));
+    x=[0 0 0 0 0 0]';
+    fxi=zeros(n,2*n+1);
+    [Xi,W]=SigmaPoints(x,P,-3);
+    
+    F = [0 GyroVelBody(t,4)-xhat(7) -(GyroVelBody(t,3)-xhat(6)) -0.5 0 0
+        -(GyroVelBody(t,4)-xhat(7)) 0 GyroVelBody(t,2)-xhat(5) 0 -0.5 0
+        GyroVelBody(t,3)-xhat(6) -(GyroVelBody(t,2)-xhat(5)) 0 0 0 -0.5
+        0 0 0 0 0 0
+        0 0 0 0 0 0
+        0 0 0 0 0 0];
+    
+    fai_transmat=eye(6)+F*T+(T^2/2)*F*F;
+    for i=1:2*n+1
+        fxi(:,i)=fai_transmat*Xi(:,i);
+    end
+    [xp,Pp]=UT(fxi,W,Q);
+    hxi=zeros(m,2*n+1);
+    for j=1:2*n+1
+        hxi(:,j)=[fxi(1,j),fxi(2,j),fxi(3,j)];
+    end
+    [zp,Pz]=UT(hxi,W,R);
+    Pxz=zeros(n,m);
+    for l=1:2*n+1
+        Pxz=Pxz+W(l)*(fxi(:,l)-xp)*(hxi(:,l)-zp)';
+    end
+    K=Pxz*inv(Pz);
+    
+    xmeasure=[QuaBodySs(t+2,2) QuaBodySs(t+2,3) QuaBodySs(t+2,4) QuaBodySs(t+2,5)]';
+    xmeasure(1:4)=xmeasure(1:4)/norm(xmeasure(1:4));
+     
+    xhat(1:4)=0.58*xhat(1:4)+0.42*xmeasure;
+    
+    z=[xmeasure(2)-xhat(2);xmeasure(3)-xhat(3);xmeasure(4)-xhat(4)];
+    x=xp+K*(z-zp);
+    P=Pp-K*Pz*K';
+
+    Q_mul=[xhat(1) -xhat(2) -xhat(3) -xhat(4)
+        xhat(2) xhat(1) -xhat(4) xhat(3)
+        xhat(3) xhat(4) xhat(1) -xhat(2)
+        xhat(4) -xhat(3) xhat(2) xhat(1)];
+    xhat(1:4,1)=Q_mul*[sqrt(1-x(1)^2-x(2)^2-x(3)^2) x(1) x(2) x(3)]';
+    xhat(1:4)=xhat(1:4)/norm(xhat(1:4));
+    
+%     xhat(5:7,1)=[0 0 0];
+    xhat(5:7,1)=xhat(5:7,1)+[x(4) x(5) x(6)]';
+    
+    filter_time=GyroVelBody(t+1,1);
+    xhatArray = [xhatArray xhat];
+    xgyroArray=[xgyroArray xgyro];
+    tArray = [tArray filter_time];
+    xArray=[xArray x];
+end
+
+ResultQuan=[tArray' (xhatArray(1:4,:))'];
+
+
+
+figure(1)
+plot(time,q1)
+hold on;
+plot(tArray,xhatArray(2,:));
+hold on;
+plot(tArray,xgyroArray(2,:));
+hold on;
+plot(QuaBodySs2(2:end,1),QuaBodySs2(2:end,3));
+
+% duiqi time diff(on-orbit q and xhat)
+for i=1:length(time)
+[array,index]=sort(abs(time(i)-tArray));
+q0_hat(i)=lagrange(tArray(index(1:3)),xhatArray(1,index(1:3)),time(i));
+q1_hat(i)=lagrange(tArray(index(1:3)),xhatArray(2,index(1:3)),time(i));
+q2_hat(i)=lagrange(tArray(index(1:3)),xhatArray(3,index(1:3)),time(i));
+q3_hat(i)=lagrange(tArray(index(1:3)),xhatArray(4,index(1:3)),time(i));
+q_hat(i,:)=[time(i),q0_hat(i),q1_hat(i),q2_hat(i),q3_hat(i)];
+q_hat(i,2:5)=q_hat(i,2:5)/norm(q_hat(i,2:5));
+end
+
+for i=1:length(time)
+pp=q_hat(i,2:5);
+qq=[sqrt(1-q1(i)^2-q2(i)^2-q3(i)^2) -q1(i) -q2(i) -q3(i)];
+r(i,:)=quan_mul(pp,qq);
+angle_hat(i,:)=qua2ang(r(i,:));
+end
+angle_hat=angle_hat*3600;
+
+% sqrt(sum(angle_hat(1,:).^2)/1801)
+% sqrt(sum(angle_hat(2,:).^2)/1801)
+% sqrt(sum(angle_hat(3,:).^2)/1801)
+
+figure(2)
+plot(time,angle_hat(:,1));
+hold on;
+plot(time,angle_hat(:,2));
+hold on;
+plot(time,angle_hat(:,3));
+
+
+function r=quan_mul(p,q)
+    mat_p=[p(1) -p(2) -p(3) -p(4)
+           p(2) p(1) -p(4) p(3)
+           p(3) p(4) p(1) -p(2)
+           p(4) -p(3) p(2) p(1)];
+    r=mat_p*[q(1) q(2) q(3) q(4)]';
+    r=r/norm(r);
+end
+
+% plot(time,q1)
+% hold on;
+% plot(QuaBodySs1(:,1),QuaBodySs1(:,3))
+% hold on;
+% plot(QuaBodySs2(:,1),QuaBodySs2(:,3))
+% hold on;
+% plot(QuaBodySs3(:,1),QuaBodySs3(:,3))
